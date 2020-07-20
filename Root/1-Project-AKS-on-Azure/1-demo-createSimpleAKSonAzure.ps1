@@ -1,9 +1,6 @@
-#AKS/rg name
-$name="sampleAKSonAzure001"
-#Deployment region
-$location="eastus"
+$var = Get-Content ($pwd.path +"/Root/1-Project-AKS-on-Azure/var.json") | ConvertFrom-Json
 
-$aks = az aks show -n $name -g $name | ConvertFrom-Json
+$aks = az aks show -n $var.aks_name -g $var.aks_rg | ConvertFrom-Json
 if (!$aks)
 {
 . .\Root\BaseAKSInfra\BaseAKS-External.ps1
