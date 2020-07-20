@@ -3,8 +3,8 @@ $name="sampleAKSonAzure001"
 #Deployment region
 $location="eastus"
 
-$aks = Get-AzAks -Name $name -ResourceGroupName $name -ErrorAction SilentlyContinue
-if ($aks -eq $null)
+$aks = az aks show -n $name -g $name | ConvertFrom-Json
+if (!$aks)
 {
 . .\Root\BaseAKSInfra\BaseAKS-External.ps1
 }
