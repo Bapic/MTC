@@ -116,3 +116,6 @@ $vote | kubectl apply -f -
 #show deployments
 Write-Host -ForegroundColor Green "AKS Deployments"
 kubectl get deploy -o wide
+#get service ip
+Write-Host "Service IP for voting App" -ForegroundColor Green
+kubectl get service azure-vote-front -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
