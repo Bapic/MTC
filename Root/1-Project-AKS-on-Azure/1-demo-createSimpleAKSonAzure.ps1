@@ -6,7 +6,7 @@ if (!$aks)
 . .\Root\BaseAKSInfra\BaseAKS-External.ps1
 }
 #get aks credentials
-az aks get-credentials -n $name -g $name --overwrite-existing --verbose
+az aks get-credentials -n $var.aks_name -g $var.aks_rg --overwrite-existing --verbose
 #Show current Context
 Write-Host -ForegroundColor Green "Current Context"
 kubectl config get-contexts
