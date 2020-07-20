@@ -8,3 +8,4 @@ Write-Host = "Please select the demo to be deployed"
 $project = Read-Host ":"
 
 $script_path=(Get-ChildItem (".\Root\" + $Project_name +"\" + $project + "-demo*")).FullName
+. $script_path
