@@ -1,9 +1,8 @@
-﻿Write-Host = "Please select the project no"
+﻿Write-Host = "Please select the project no" -ForegroundColor Green
 (Get-ChildItem -Path .\Root).Name
 $choice = Read-Host ":"
-Write-Host = "Please select the demo to be deployed"
+Write-Host = "Please select the demo to be deployed" -ForegroundColor Green
 $Project_name = (Get-ChildItem (".\Root\" + $choice + "-Project*")).name
-Write-Host = "Please select the demo to be deployed"
 (Get-ChildItem (".\Root\" + $Project_name)).Name | ?{$_ -like "*-demo*"}
 $project = Read-Host ":"
 
