@@ -54,7 +54,7 @@ spec:
         "beta.kubernetes.io/os": linux
       containers:
       - name: azure-vote-front
-        image: microsoft/azure-vote-front:v1
+        image: $($acr_name + ".azurecr.io/azure-vote-front:v1")
         ports:
         - containerPort: 80
         resources:
@@ -73,6 +73,8 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 80
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
   selector:
     app: azure-vote-front

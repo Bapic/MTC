@@ -25,11 +25,7 @@ kubectl get ns --show-labels
 #show cluster info
 Write-Host -ForegroundColor Green "AKS Cluster-info"
 kubectl cluster-info
-# Create acr
-$acr_name = $("acr" + (get-random))
-az acr create -g $var.aks_rg --name $acr_name --sku Basic
-az acr build -r $acr_name -g $var.aks_rg -t azure-vote-front:v1  .\Root\1-Project-AKS-on-Azure\azure-voting-app-redis-master\azure-vote\
-az aks update -n $var.aks_name -g $var.aks_rg --attach-acr $acr_name
+#deploy voting app
 $vote = @"
 apiVersion: apps/v1
 kind: Deployment
@@ -50,6 +46,13 @@ spec:
       containers:
       - name: azure-vote-back
         image: redis
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
         ports:
         - containerPort: 6379
           name: redis
@@ -73,11 +76,6 @@ spec:
   selector:
     matchLabels:
       app: azure-vote-front
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
-  minReadySeconds: 5 
   template:
     metadata:
       labels:
@@ -87,14 +85,16 @@ spec:
         "beta.kubernetes.io/os": linux
       containers:
       - name: azure-vote-front
-        image: $($acr_name + ".azurecr.io/azure-vote-front:v1")
-        ports:
-        - containerPort: 80
+        image: microsoft/azure-vote-front:v1
         resources:
           requests:
-            cpu: 250m
+            cpu: 100m
+            memory: 128Mi
           limits:
-            cpu: 500m
+            cpu: 250m
+            memory: 256Mi
+        ports:
+        - containerPort: 80
         env:
         - name: REDIS
           value: "azure-vote-back"
@@ -106,21 +106,15 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 80
+  - port: 80
   selector:
     app: azure-vote-front
 "@
+Write-Host -ForegroundColor Green "Deploying voting application ..."
 $vote | kubectl apply -f -
+#show deployments
+Write-Host -ForegroundColor Green "AKS Deployments"
+kubectl get deploy -o wide
 #get service ip
 Write-Host "Service IP for voting App" -ForegroundColor Green
 kubectl get service azure-vote-front -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
-# Prompt user to manually modify the script
-Read-Host "Modify config_file.cfg file and press enter"
-# Push modified image to acr
-az acr build -r $acr_name -g $var.aks_rg -t azure-vote-front:v2  .\Root\1-Project-AKS-on-Azure\azure-voting-app-redis-master\azure-vote\
-# Prompt host with the image name
-write-host "Image $($acr_name + ".azurecr.io/azure-vote-front:v2") has been push to acr"
-Write-Host "Use kubectl set image deployment azure-vote-front azure-vote-front=$($acr_name + ".azurecr.io/azure-vote-front:v2") to update the deployment"
-
