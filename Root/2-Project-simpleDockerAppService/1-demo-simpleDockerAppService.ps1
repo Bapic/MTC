@@ -1,120 +1,80 @@
-$var = Get-Content ($pwd.path +"/Root/1-Project-AKS-on-Azure/var.json") | ConvertFrom-Json
-
-$aks = az aks show -n $var.aks_name -g $var.aks_rg | ConvertFrom-Json
-if (!$aks)
+# Read git hub username
+$user = Read-Host "Enter Git hub user name"
+# Read git hub access token
+$pass = Read-Host "Enter Git hub pat token" -AsSecureString
+# Read git hub mail id
+$mail = Read-Host "Enter Git hub email address"
+# Deployment region
+$REGION_NAME="eastus"
+# Resource group name
+$RESOURCE_GROUP=$("DockerAppServiceRG-"+(get-random))
+# App service name
+$APP_NAME=$("simpleDockerAppService"+(Get-Random))
+# Root git repo
+$GITREPO="https://github.com/Bapic/simpleDockerAppService.git"
+# Azure contianer registry name
+$ACR_NAME=$("acr"+(Get-Random))
+# Create RG
+write-host "Creating resource group" -ForegroundColor Green
+az group create --location $REGION_NAME --name $RESOURCE_GROUP
+# Create app service plan
+Write-Host "Creating App Service Plan" -ForegroundColor Green
+az appservice plan create --name $APP_NAME --resource-group $RESOURCE_GROUP --location $REGION_NAME --is-linux --sku S1
+# Create webapp
+Write-Host "Creating Webapp" -ForegroundColor Green
+az webapp create --name $APP_NAME --plan $APP_NAME --resource-group $RESOURCE_GROUP -i nginx
+# Create acr
+Write-Host "Creating Azure container registry" -ForegroundColor Green
+az acr create --resource-group $RESOURCE_GROUP --location $REGION_NAME --name $ACR_NAME --sku Standard --admin-enabled true
+# Check PS module
+Write-Host "Checking PowerShellForGitHub Powershell module availability"
+$mod = Get-Module PowerShellForGitHub
+if (!$mod)
 {
-. .\Root\BaseAKSInfra\BaseAKS-External.ps1
+  Write-Host "PowerShellForGitHub Not available" -ForegroundColor Red
+  Write-Host " Installing PowerShellForGitHub powershell module" -ForegroundColor Green
+  Install-Module PowerShellForGitHub -Confirm:$false
 }
-#get aks credentials
-az aks get-credentials -n $var.aks_name -g $var.aks_rg --overwrite-existing --verbose
-#Show current Context
-Write-Host -ForegroundColor Green "Current Context"
-kubectl config get-contexts
-#show kube svc
-Write-Host -ForegroundColor Green "AKS Deployed Services"
-kubectl get svc
-#show nodes
-Write-Host -ForegroundColor Green "AKS Nodes"
-kubectl get nodes
-#show pods
-Write-Host -ForegroundColor Green "AKS running Pods"
-kubectl get pods -A
-#show namespace
-Write-Host -ForegroundColor Green "AKS Namespaces"
-kubectl get ns --show-labels
-#show cluster info
-Write-Host -ForegroundColor Green "AKS Cluster-info"
-kubectl cluster-info
-#deploy voting app
-$vote = @"
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: azure-vote-back
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: azure-vote-back
-  template:
-    metadata:
-      labels:
-        app: azure-vote-back
-    spec:
-      nodeSelector:
-        "beta.kubernetes.io/os": linux
-      containers:
-      - name: azure-vote-back
-        image: redis
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 250m
-            memory: 256Mi
-        ports:
-        - containerPort: 6379
-          name: redis
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: azure-vote-back
-spec:
-  ports:
-  - port: 6379
-  selector:
-    app: azure-vote-back
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: azure-vote-front
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: azure-vote-front
-  template:
-    metadata:
-      labels:
-        app: azure-vote-front
-    spec:
-      nodeSelector:
-        "beta.kubernetes.io/os": linux
-      containers:
-      - name: azure-vote-front
-        image: microsoft/azure-vote-front:v1
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 250m
-            memory: 256Mi
-        ports:
-        - containerPort: 80
-        env:
-        - name: REDIS
-          value: "azure-vote-back"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: azure-vote-front
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 80
-  selector:
-    app: azure-vote-front
-"@
-Write-Host -ForegroundColor Green "Deploying voting application ..."
-$vote | kubectl apply -f -
-#show deployments
-Write-Host -ForegroundColor Green "AKS Deployments"
-kubectl get deploy -o wide
-#get service ip
-Write-Host "Service IP for voting App" -ForegroundColor Green
-kubectl get service azure-vote-front -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
+# Create PSCreds for github auth
+$cred = New-Object System.Management.Automation.PSCredential ($user, $pass)
+# Set git context
+Write-Host "Setting Git hub authentication" -ForegroundColor Green
+Set-GitHubAuthentication -Credential $cred
+# Create new git repo for code push
+Write-Host "Creating git hub repo" -ForegroundColor Green
+$repo = New-GitHubRepository -RepositoryName "DockerAppService"
+# Set git global config
+Write-Host "Setting Git global config" -ForegroundColor Green
+git config --global user.email $mail
+git config --global user.name $user
+# Clone repo
+Write-Host "cloning remote git repo" -ForegroundColor Green
+git clone https://github.com/Bapic/simpleDockerAppService.git
+cd simpleDockerAppService
+# Remove remote origin
+git remote rm origin
+# Add custom origin
+git remote add origin $repo.clone_url
+# Initialize repo
+git init
+# Add files for commit
+git add .
+# Commit changes
+git commit -m "read to push"
+# push To Master
+Write-Host "Pushing code to personal git repo" -ForegroundColor Green
+git push -u origin master
+
+# Set container settings in webapp
+# Get acr username
+$acr_username = az acr credential show --name $ACR_NAME -g $RESOURCE_GROUP --query username -o tsv
+# Get acr password
+$acr_password = az acr credential show --name $ACR_NAME -g $RESOURCE_GROUP --query passwords[0].value -o tsv
+# Update webapp config to user acr
+Write-Host "Updating web app container settings" -ForegroundColor Green
+az webapp config container set --docker-registry-server-password $acr_password --docker-registry-server-url $("https://" +$acr_username + ".azurecr.io") --docker-registry-server-user $acr_username --name $APP_NAME --resource-group $RESOURCE_GROUP
+# Enable continious deployment
+Write-Host "Enabling continious container deployment" -ForegroundColor Green
+az webapp deployment container config --enable-cd true -n $APP_NAME -g $RESOURCE_GROUP
+write-host "Now, manually configure the Deployment Source as Github with Azure DevOps pipelines with continuous deployment"
+write-host "Make changes to the App files txt, push the changes and that should reflect on the site instantly"
