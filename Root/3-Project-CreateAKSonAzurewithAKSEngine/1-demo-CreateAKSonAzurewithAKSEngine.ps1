@@ -14,4 +14,16 @@ az role assignment create --role Contributor --assignee $spnAppId --scope $("/su
 $apimodel = ".\CreateAKSonAzurewithAKSEngine\Kubernetes.json"
 Write-host "Deploying aks-engine" -ForegroundColor Green
 aks-engine deploy --subscription-id $subscriptionId --resource-group $resourceGroupName --client-id $spnAppId  --client-secret $spnAppPassword  --dns-prefix $dnsPrefix --location $location --api-model $apimodel --force-overwrite
-Write-host "To use kubectl to manage the kube cluster set environment variable `$env:KUBECONFIG = to absolute path of the json file stored at _output\resource group name\kubeconfig\" -ForegroundColor Green
+
+$pwd = pwd
+$jsonpath = $($pwd.path + "\_output\" + $resourceGroupName + "\kubeconfig\kubeconfig." + $location +".json")
+Write-host "Setting `$env:KUBECONFIG=$jsonpath" -ForegroundColor Green
+$env:KUBECONFIG=$jsonpath
+Write-host "Get cluster info" -ForegroundColor Green
+kubectl cluster-info
+Write-host "Get pods" -ForegroundColor Green
+kubectl get pods
+Write-host "Get service" -ForegroundColor Green
+kubectl get svc
+Write-host "Get nodes" -ForegroundColor Green
+kubectl get nodes
